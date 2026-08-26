@@ -1,19 +1,38 @@
 #!/usr/bin/env python3
-"""Archive one generated university record into records/<中文学校名>/.
+"""Prepare one timestamp-named university archive bundle for Google Drive.
 
-This helper copies an already-generated PPTX and its rendered PNG into the
-repository and writes a Markdown record whose footer links both artifacts.
+The permanent record destination is Google Drive:
+    大学PPT生成记录/<中文学校名>/
+
+This helper prepares a local MD/PPTX/PNG three-file bundle using a record stem
+that is precise to one minute. Google Drive upload itself is handled by the
+connected Drive workflow so the Markdown footer can contain real returned URLs.
 """
 from __future__ import annotations
 
 import argparse
 import shutil
+from datetime import datetime
 from pathlib import Path
+
+
+def minute_record_stem(now: datetime | None = None) -> str:
+    """Return a filesystem-safe local timestamp precise to one minute."""
+    current = now or datetime.now().astimezone()
+    return current.strftime("%Y-%m-%d_%H-%M")
+
+
+def choose_record_stem(folder: Path, student_id: str, now: datetime | None = None) -> str:
+    """Use the minute timestamp, adding student ID only on a same-minute collision."""
+    stem = minute_record_stem(now)
+    if any((folder / f"{stem}.{ext}").exists() for ext in ("md", "pptx", "png")):
+        return f"{stem}_{student_id}"
+    return stem
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--repo-root", default=".")
+    p.add_argument("--archive-root", default="大学PPT生成记录")
     p.add_argument("--school-cn", required=True)
     p.add_argument("--school-en", required=True)
     p.add_argument("--first-name", required=True)
@@ -29,13 +48,17 @@ def main() -> None:
     p.add_argument("--png", required=True)
     p.add_argument("--campus", default="")
     p.add_argument("--source-clue", default="")
-    p.add_argument("--qa", default="第一行单行；正文自然顺排；右下角校名单行")
+    p.add_argument("--qa", default="第一行单行；正文自然顺排；右下角官方英文校名单行；演示标识保留")
+    p.add_argument("--ppt-drive-url", default="")
+    p.add_argument("--png-drive-url", default="")
     args = p.parse_args()
 
-    repo = Path(args.repo_root).resolve()
-    folder = repo / "records" / args.school_cn
+    archive_root = Path(args.archive_root).resolve()
+    folder = archive_root / args.school_cn
     folder.mkdir(parents=True, exist_ok=True)
-    stem = args.student_id
+
+    now = datetime.now().astimezone()
+    stem = choose_record_stem(folder, args.student_id, now)
     ppt_dst = folder / f"{stem}.pptx"
     png_dst = folder / f"{stem}.png"
     md_dst = folder / f"{stem}.md"
@@ -43,37 +66,52 @@ def main() -> None:
     shutil.copy2(args.ppt, ppt_dst)
     shutil.copy2(args.png, png_dst)
 
+    full_name = f"{args.first_name} {args.last_name}".strip()
+    timestamp = now.isoformat(timespec="minutes")
+    timezone_name = now.tzname() or str(now.utcoffset())
+
     lines = [
         f"# {args.school_cn}生成记录 — {stem}",
         "",
         f"- 中文校名：{args.school_cn}",
-        f"- 英文校名：{args.school_en}",
-    ]
-    if args.campus:
-        lines.append(f"- 采用校区：{args.campus}")
-    lines += [
+        f"- 官方英文全名：{args.school_en}",
         f"- First name：{args.first_name}",
         f"- Last name：{args.last_name}",
+        f"- 完整随机姓名：{full_name}",
         f"- Student ID：{args.student_id}",
         f"- Address：{args.address}",
         f"- City：{args.city}",
         f"- State/Province：{args.province}",
         f"- Postal/Zip code：{args.postal_code}",
+    ]
+    if args.campus:
+        lines.append(f"- 校区：{args.campus}")
+    lines += [
         f"- Latitude：{args.latitude}",
         f"- Longitude：{args.longitude}",
+        f"- 生成时间：{timestamp}",
+        f"- 时区：{timezone_name}",
     ]
     if args.source_clue:
-        lines.append(f"- 来源线索：{args.source_clue}")
+        lines.append(f"- 用户原始输入：{args.source_clue}")
     lines += [
         f"- PPT 视觉验收：{args.qa}",
         "",
         "> 注意：必须保留模板中的 `SAMPLE / NOT VALID` 与 `仅供演示，不具效力` 标识。",
         "",
-        f"[下载 PPT](./{stem}.pptx)",
-        "",
-        f"![PPT 预览](./{stem}.png)",
-        "",
     ]
+
+    if args.ppt_drive_url:
+        lines.append(f"[PPT 文件]({args.ppt_drive_url})")
+    else:
+        lines.append("[PPT 文件](待 Google Drive 上传成功后写入真实链接)")
+    lines.append("")
+    if args.png_drive_url:
+        lines.append(f"![PPT 预览]({args.png_drive_url})")
+    else:
+        lines.append("![PPT 预览](待 Google Drive 上传成功后写入真实链接)")
+    lines.append("")
+
     md_dst.write_text("\n".join(lines), encoding="utf-8")
     print(md_dst)
 
