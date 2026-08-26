@@ -1,5 +1,7 @@
 # University Form + PPT Skill
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 A Codex/ChatGPT skill for a narrow workflow:
 
 - identify a university from a school name, email address, or domain;
@@ -20,7 +22,10 @@ A Codex/ChatGPT skill for a narrow workflow:
 - `docs/OUTPUT_SCHEMA.md` — response field contract.
 - `docs/PPT_RULES.md` — PPT formatting constraints.
 - `docs/RESEARCH_POLICY.md` — school/campus verification policy.
+- `docs/MAINTAINER_GUIDE.zh-CN.md` — Chinese maintainer guide for the workflow.
 - `tests/test_template.py` — template sanity test.
+
+Chinese documentation is available in `README.zh-CN.md` and the `docs/*.zh-CN.md` files. The executable agent source of truth remains `SKILL.md` to avoid duplicated operational rules drifting apart.
 
 ## Install as a Codex skill
 
