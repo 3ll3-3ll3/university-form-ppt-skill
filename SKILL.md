@@ -75,7 +75,7 @@ Use this skill when the user sends a university name, school email address/domai
   - If necessary, make only the smallest local spacing/text-box adjustment after first trying a shorter random identity.
 - The bottom-right school name must always remain on one line.
   - First try to preserve the original font and position.
-  - If it would wrap, make the smallest local adjustment necessary to that bottom-right school-name line only (for example reduce leading padding/spacing or slightly reduce that line's font size).
+  - If it would wrap, make the smallest local adjustment necessary to that bottom-right school-name line only.
   - Do not change the slide's overall layout.
 - Save to a new `.pptx`; never overwrite the user's source template.
 
@@ -91,7 +91,32 @@ Before returning a generated PPT:
 6. Confirm the body from the second line onward has natural continuous wrapping and no replacement-created abrupt isolated line.
 7. Confirm the bottom-right school name is one line.
 8. If any of checks 5–7 fail, regenerate with a shorter identity and/or make the smallest permitted local adjustment, then render again.
-9. Return the generated PPT file and the exact random name/student ID used.
+
+## Record archive
+
+Every successful generation must be persisted in the repository under `records/<中文学校名>/`.
+
+For each generation, use the same record stem (prefer the generated student ID) and store:
+
+- `<record>.md`
+- `<record>.pptx`
+- `<record>.png` — rendered directly from the generated PPT, not AI-generated.
+
+The Markdown record must contain the resolved school information, generated name, student ID, and generation metadata. At the end of the Markdown file, embed links to both artifacts using relative paths, including an inline image preview, for example:
+
+```md
+[下载 PPT](./20253842.pptx)
+
+![PPT 预览](./20253842.png)
+```
+
+Chinese school names are the required folder names. Multiple generations for the same school remain in the same school folder as separate record stems.
+
+A generation is not considered fully complete until the Markdown, PPTX, and rendered PNG are all archived when repository write capability is available.
+
+## Delivery order
+
+When replying to the user after generation, always provide the rendered PPT image first, then the PPT file. The image must come from rendering the actual generated PPT. Do not substitute an AI-generated image.
 
 ## Safety / data integrity
 
