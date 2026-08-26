@@ -85,3 +85,9 @@ Before returning a generated PPT:
 
 - The bundled template is an explicit demo/non-valid certificate template. Preserve its `SAMPLE / NOT VALID` and `仅供演示，不具效力` markings.
 - Do not remove or hide those markings.
+
+## Chinese documentation / 中文文档
+
+`SKILL.md` remains the single operational source of truth so duplicated translations do not drift. Human-readable Simplified Chinese documentation is provided in `README.zh-CN.md` and `docs/*.zh-CN.md`.
+
+为避免中英文执行规则长期维护后产生偏差，`SKILL.md` 仍作为唯一正式执行规范。面向人工阅读和维护的简体中文说明见 `README.zh-CN.md` 与 `docs/*.zh-CN.md`。
