@@ -65,9 +65,16 @@ def main() -> None:
     parser.add_argument("--student-id")
     parser.add_argument("--seed", type=int)
     parser.add_argument("--id-prefix", default="2023")
+    parser.add_argument("--student-id-length", type=int, choices=(8, 9), default=8)
+    parser.add_argument("--max-name-chars", type=int, default=12)
     args = parser.parse_args()
 
-    identity = generate_identity(args.seed, args.id_prefix)
+    identity = generate_identity(
+        args.seed,
+        args.id_prefix,
+        args.student_id_length,
+        args.max_name_chars,
+    )
     name = args.name or identity["name"]
     student_id = args.student_id or identity["student_id"]
     fill(args.template, args.output, name, student_id, args.school_name)
@@ -75,6 +82,7 @@ def main() -> None:
     print(f"student_id={student_id}")
     print(f"school_name={args.school_name}")
     print(f"output={args.output}")
+    print("qa_required=render_and_visually_check_first_line_body_flow_and_bottom_right_school_name")
 
 
 if __name__ == "__main__":
