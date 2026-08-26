@@ -29,7 +29,9 @@ Use this skill when the user sends a university name, school email address/domai
    - Follow the user's field convention: the first returned name field is the surname pinyin and the second returned name field is the given-name pinyin.
    - Example: `Li` then `Feiyu`.
    - PPT `{{name}}` should be the combined form: `Li Feiyu`.
-   - Generate a fresh random numeric student ID for the same run. Default to 10 digits unless the user requests another format.
+   - Generate a fresh random numeric student ID for the same run.
+   - The student ID length is layout-driven, not fixed. Prefer an 8-digit ID by default; 9 digits may be used only when the first certificate line still remains on one line after rendering.
+   - If the first line would wrap, choose a shorter student ID and/or a shorter random pinyin name before considering any font-size change.
    - Do not infer the student's real identity from a numeric email username.
 
 4. Return only the requested form fields, each in its own copyable code block:
@@ -62,11 +64,19 @@ Use this skill when the user sends a university name, school email address/domai
 - Preserve the original slide size, theme, fonts, font sizes, colors, positions, shapes, line spacing, paragraph spacing, and all non-placeholder content.
 - Do not rebuild the slide from scratch.
 - Prefer raw PPTX XML text replacement so only placeholder text changes.
+- The first body line containing `student ID: {{student_id}}` must remain a single line.
+  - The automatically generated name and student ID must be chosen to fit that line.
+  - Prefer shortening the generated ID to 8 digits and/or selecting a shorter pinyin name rather than changing typography.
+  - Do not deliver a PPT where the student ID is stranded on a new line.
+- The body text from the second line onward must read as a normal continuous paragraph.
+  - Longer replacement text must push subsequent words forward naturally.
+  - Do not insert hard line breaks before or after any replacement.
+  - Do not allow a replacement field or adjacent word to appear as an obviously isolated line caused by the replacement logic.
+  - If necessary, make only the smallest local spacing/text-box adjustment after first trying a shorter random identity.
 - The bottom-right school name must always remain on one line.
   - First try to preserve the original font and position.
   - If it would wrap, make the smallest local adjustment necessary to that bottom-right school-name line only (for example reduce leading padding/spacing or slightly reduce that line's font size).
   - Do not change the slide's overall layout.
-- In the body paragraph, longer replacement fields must flow naturally inline. Do not insert a hard line break before or after a replacement. Let subsequent text continue naturally.
 - Save to a new `.pptx`; never overwrite the user's source template.
 
 ## Validation before delivery
@@ -76,15 +86,30 @@ Before returning a generated PPT:
 1. Confirm placeholder counts in the template: one `{{name}}`, one `{{student_id}}`, and two `{{school_name}}` occurrences.
 2. Confirm all placeholders are gone in the output.
 3. Confirm no other visible text changed.
-4. Render/inspect the slide if a renderer is available.
-5. Confirm the bottom-right school name is one line.
-6. Confirm the body text did not gain an artificial line break around replacements.
-7. Return the generated PPT file and the exact random name/student ID used.
+4. Render the slide and visually inspect it before delivery. If no renderer is available, do not claim visual QA is complete.
+5. Confirm the first line, including the student ID, remains one line.
+6. Confirm the body from the second line onward has natural continuous wrapping and no replacement-created abrupt isolated line.
+7. Confirm the bottom-right school name is one line.
+8. If any of checks 5–7 fail, regenerate with a shorter identity and/or make the smallest permitted local adjustment, then render again.
+9. Return the generated PPT file and the exact random name/student ID used.
 
 ## Safety / data integrity
 
 - The bundled template is an explicit demo/non-valid certificate template. Preserve its `SAMPLE / NOT VALID` and `仅供演示，不具效力` markings.
 - Do not remove or hide those markings.
+
+## Rule synchronization invariant
+
+When the user changes this workflow's rules during an interactive conversation, the change is not considered complete until the GitHub repository is updated immediately as well.
+
+Update, as applicable:
+
+- `SKILL.md` first;
+- relevant English and Chinese documentation;
+- implementation scripts;
+- tests.
+
+Do not leave a conversation-only rule that contradicts the repository.
 
 ## Chinese documentation / 中文文档
 
