@@ -5,93 +5,87 @@
 这是一个面向 Codex / ChatGPT 的专用 Skill，用于以下固定工作流：
 
 - 根据大学名称、学校邮箱或邮箱域名识别学校；
-- 核验学校官方英文名、主要校区地址和邮编；
-- 按指定格式输出表单字段和校区经纬度；
-- 随机生成符合中文姓名习惯的拼音姓名和适配版面的数字学号；
-- 在内置 PPT 模板中只替换 `{{name}}`、`{{student_id}}`、`{{school_name}}` 三类占位符；
-- 尽可能保持 PPT 原始版式、字体、字号、位置、行距、颜色和演示/无效标记不变；
-- 交付前必须渲染检查第一行、正文连续顺排和右下角校名单行效果；
-- 每次成功生成后，把 MD 记录、PPT 和由该 PPT 直接渲染得到的 PNG 一起归档到仓库。
+- 核验学校官方中文名、官方英文全名、主要校区地址、邮编和经纬度；
+- 随机生成较短的中文拼音姓名和适配第一行版面的数字学号；
+- 在最新用户确认的 PPT 模板中只替换 `{{name}}`、`{{student_id}}`、`{{school_name}}`；
+- 尽可能保持模板原始版式、字体、字号、位置、行距、颜色和演示/无效标记不变；
+- 交付前必须渲染检查第一行、正文连续顺排和右下角官方英文校名单行效果；
+- 每次成功生成后，自动把 MD、PPTX 和由该 PPT 直接渲染得到的 PNG 归档到 Google Drive，不再等待用户二次提醒。
 
-## 仓库结构
+## GitHub 仓库用途
 
-- `SKILL.md`：Agent 的正式执行规则和硬性约束，是唯一操作规则源。
-- `assets/certificate_template.pptx`：当前确认使用的 PPT 模板。
-- `records/`：所有历史生成记录。
-- `records/<中文学校名>/`：按中文学校名分类，每次生成保存同名 stem 的 `.md`、`.pptx`、`.png`。
-- `scripts/fill_certificate.py`：尽量保守地替换 PPTX 占位符。
+本仓库只维护可复用工作流，不保存具体学校生成记录：
+
+- `SKILL.md`：Agent 正式执行规则，是唯一操作规则源。
+- `assets/certificate_template.pptx`：当前用户确认使用的最新 PPT 模板。
+- `scripts/fill_certificate.py`：保守替换 PPTX 占位符。
 - `scripts/inspect_template.py`：检查模板占位符和结构。
-- `scripts/random_identity.py`：随机生成中文拼音姓名和适配版面的学号。
-- `data/names.json`：随机姓名数据源。
-- `docs/OUTPUT_SCHEMA.md` / `docs/OUTPUT_SCHEMA.zh-CN.md`：输出字段规范。
-- `docs/PPT_RULES.md` / `docs/PPT_RULES.zh-CN.md`：PPT 格式规则。
-- `docs/RESEARCH_POLICY.md` / `docs/RESEARCH_POLICY.zh-CN.md`：学校信息核验规则。
-- `docs/MAINTAINER_GUIDE.zh-CN.md`：中文维护说明。
+- `scripts/random_identity.py`：随机生成拼音姓名和版面友好学号。
+- `scripts/archive_record.py`：生成按分钟时间戳命名的本地三件套，供 Google Drive 归档流程使用。
+- `tests/`：工作流测试。
+- `docs/`：中英文维护文档。
 
-## 记录归档规则
+具体学校生成记录统一保存在 Google Drive，不再写入 GitHub `records/`。
 
-每次成功生成 PPT 后，必须在：
+## Google Drive 归档规则
 
-```text
-records/<中文学校名>/
-```
-
-保存三件套。推荐直接使用本次随机学号作为文件名 stem，例如：
+每次成功生成后，必须自动归档到：
 
 ```text
-records/湖南工学院/20253842.md
-records/湖南工学院/20253842.pptx
-records/湖南工学院/20253842.png
+大学PPT生成记录/<中文学校名>/
 ```
 
-其中 PNG 必须是**由生成后的 PPT 直接渲染得到的图片**，不能用 AI 生图替代。
+同一次生成的 MD、PPTX、PNG 使用完全相同的 record stem，并且文件名必须使用**精确到 1 分钟的生成日期时间**：
 
-MD 文件记录学校、校区、表单字段、经纬度、随机姓名、学号等信息，并且在文件尾部用相对路径同时嵌入 PPT 链接和图片预览，例如：
-
-```md
-[下载 PPT](./20253842.pptx)
-
-![PPT 预览](./20253842.png)
+```text
+YYYY-MM-DD_HH-mm.md
+YYYY-MM-DD_HH-mm.pptx
+YYYY-MM-DD_HH-mm.png
 ```
 
-同一所学校生成多次时，继续存放在同一个中文学校文件夹中，以不同学号/record stem 区分。
+例如：
+
+```text
+2026-08-27_01-11.md
+2026-08-27_01-11.pptx
+2026-08-27_01-11.png
+```
+
+时间戳使用用户当前本地/会话时区。以后不再默认使用 Student ID 作为归档文件名。若同一学校在同一分钟内已经存在同名记录，只允许为避免覆盖而追加 `_<student_id>`。
+
+PNG 必须由生成后的 PPT 直接渲染，不能使用 AI 生图替代。
+
+MD 至少记录：中文校名、官方英文全名、用户原始输入、First name、Last name、完整随机拼音姓名、Student ID、Address、City、State/Province、Postal/Zip code、校区、经纬度、生成时间及时区、PPT 视觉验收结果。MD 尾部必须保存 Google Drive 返回的 PPT 和 PNG **真实链接**，禁止拼接或伪造链接。
+
+只有 MD、PPTX、PNG 三件套均成功上传，并在可用时完成目标文件夹回读确认，才算归档完成。
 
 ## 回复交付顺序
 
 每次生成后的聊天回复必须：
 
-1. **先给由 PPT 直接渲染得到的图片**；
-2. **再给 PPT 下载文件**。
+1. 先给由 PPT 直接渲染得到的 PNG；
+2. 再给 PPTX；
+3. 再按规定顺序给学校字段；
+4. 经纬度最后输出。
 
-不能只给 PPT，也不能用 AI 生成的近似图片代替真实 PPT 渲染图。
-
-## 本地生成 PPT
-
-Python 3.10+ 即可，核心替换脚本只依赖标准库。
-
-```bash
-python scripts/fill_certificate.py \
-  --school-name "Xi'an Polytechnic University" \
-  --output output.pptx
-```
-
-自动随机身份默认使用 8 位学号，以优先保证证书第一行不换行。只有在渲染检查确认第一行仍然完整单行时，才建议使用 9 位学号。
+Google Drive 归档是默认自动流程尾步骤，不需要用户再说“请你完成”。
 
 ## 当前固定输出字段
 
-默认输出：
+默认顺序：
 
+- 学校中文名
+- Official English Name
 - First name
 - Last name
+- Student ID
 - Address
 - City
 - State/Province
 - Postal/Zip code
-- Latitude
-- Longitude
-- 生成 PPT 时额外输出 Student ID
+- 经纬度（最后）
 
-默认不再输出：Country/Region、Address line 2、VAT/GST ID。
+默认不输出：Country/Region、Address line 2、VAT/GST ID。
 
 ## PPT 硬性规则
 
@@ -99,15 +93,21 @@ python scripts/fill_certificate.py \
 
 必须同时满足：
 
-1. 第一行包含姓名和 student ID 的整行必须保持单行；优先通过 8 位学号和较短随机拼音姓名适配。
-2. 第二行及之后的正文必须像正常英文段落一样自然连续顺排，不能出现替换造成的突兀孤立单行。
-3. 右下角学校英文名必须保持单行。
-4. 每次生成后必须渲染并肉眼检查；失败则重做。
+1. 第一行姓名和 Student ID 必须完整保持单行；优先换更短姓名，再换更短学号，不允许修改正文排版来硬塞。
+2. 第二行及之后正文允许自然换行，但禁止人为插入换行或硬拆词。
+3. 正文和右下角学校名必须使用同一个官方英文全名，禁止简称或自行翻译。
+4. 右下角学校英文全名必须保持单行；必要时只允许对该处做最小局部适配。
+5. 每次生成后必须渲染并肉眼检查；失败则重做。
+6. `SAMPLE / NOT VALID` 与 `仅供演示，不具效力` 必须永久保留且清晰可见。
+
+## REDO
+
+若用户指出英文校名、学号换行、正文格式、落款、模板格式或 Google Drive 文件有误，必须完整 REDO：重新生成 PPT → 重新渲染 PNG → 重新检查 → 替换 Drive PPT → 替换 Drive PNG → 更新 MD。禁止只修聊天文件。
 
 ## 对话规则与 GitHub 同步
 
-只要用户在当前对话里修改了这个 Agent / Skill 的规则，就要把 GitHub 仓库对应内容立即一起更新，不能只在聊天中记住。
+只要用户在当前对话里修改了这个 Agent / Skill 的规则，就要把 GitHub 仓库对应内容立即一起更新，不能只在聊天中记住。具体学校生成记录仍只进入 Google Drive。
 
 ## 重要说明
 
-仓库内 PPT 是明确的演示模板。必须永久保留 `SAMPLE / NOT VALID` 与 `仅供演示，不具效力`，不得删除、隐藏、裁切或遮挡。
+仓库内 PPT 是明确的演示模板。必须永久保留 `SAMPLE / NOT VALID` 与 `仅供演示，不具效力`，不得删除、隐藏、裁切、弱化或遮挡。
