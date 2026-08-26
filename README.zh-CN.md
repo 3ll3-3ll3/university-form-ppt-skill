@@ -7,9 +7,10 @@
 - 根据大学名称、学校邮箱或邮箱域名识别学校；
 - 核验学校官方英文名、主要校区地址和邮编；
 - 按指定格式输出表单字段和校区经纬度；
-- 随机生成符合中文姓名习惯的拼音姓名和数字学号；
+- 随机生成符合中文姓名习惯的拼音姓名和适配版面的数字学号；
 - 在内置 PPT 模板中只替换 `{{name}}`、`{{student_id}}`、`{{school_name}}` 三类占位符；
-- 尽可能保持 PPT 原始版式、字体、字号、位置、行距、颜色和演示/无效标记不变。
+- 尽可能保持 PPT 原始版式、字体、字号、位置、行距、颜色和演示/无效标记不变；
+- 交付前必须渲染检查第一行、正文连续顺排和右下角校名单行效果。
 
 ## 仓库结构
 
@@ -17,7 +18,7 @@
 - `assets/certificate_template.pptx`：当前确认使用的 PPT 模板。
 - `scripts/fill_certificate.py`：尽量保守地替换 PPTX 占位符。
 - `scripts/inspect_template.py`：检查模板占位符和结构。
-- `scripts/random_identity.py`：随机生成中文拼音姓名和学号。
+- `scripts/random_identity.py`：随机生成中文拼音姓名和适配版面的学号。
 - `data/names.json`：随机姓名数据源。
 - `docs/OUTPUT_SCHEMA.md`：英文输出字段规范。
 - `docs/OUTPUT_SCHEMA.zh-CN.md`：中文输出字段规范。
@@ -26,7 +27,7 @@
 - `docs/RESEARCH_POLICY.md`：英文学校信息核验规则。
 - `docs/RESEARCH_POLICY.zh-CN.md`：中文学校信息核验规则。
 - `docs/MAINTAINER_GUIDE.zh-CN.md`：中文维护说明。
-- `tests/test_template.py`：模板基础测试。
+- `tests/test_template.py`：模板和随机身份基础测试。
 
 ## 作为 Codex Skill 安装
 
@@ -48,13 +49,22 @@ python scripts/fill_certificate.py \
   --output output.pptx
 ```
 
+自动随机身份默认使用 8 位学号，以优先保证证书第一行不换行。只有在渲染检查确认第一行仍然完整单行时，才建议使用 9 位学号：
+
+```bash
+python scripts/fill_certificate.py \
+  --school-name "Soochow University" \
+  --student-id-length 9 \
+  --output output.pptx
+```
+
 也可以手动指定姓名和学号：
 
 ```bash
 python scripts/fill_certificate.py \
   --school-name "Soochow University" \
   --name "Li Feiyu" \
-  --student-id 2023123456 \
+  --student-id 20231234 \
   --output output.pptx
 ```
 
@@ -88,9 +98,24 @@ python scripts/fill_certificate.py \
 - `{{student_id}}`
 - `{{school_name}}`
 
-右下角学校英文名必须保持单行。正文中较长的替换内容应自然向后顺排，不允许人为增加突兀的硬换行。
+必须同时满足：
 
-除为保证上述两点所需的最小局部调整外，不得修改模板其他内容。
+1. 第一行包含姓名和 student ID 的整行必须保持单行；优先通过 8 位学号和较短随机拼音姓名适配，不能让学号单独掉到下一行。
+2. 第二行及之后的正文必须像正常英文段落一样自然连续顺排。字段变长时，后续文字依次向后流动，不能出现替换逻辑造成的突兀孤立单行。
+3. 右下角学校英文名必须保持单行。
+
+每次生成后必须渲染并肉眼检查。任意一项失败都要重新生成更短随机身份和/或做最小必要局部调整，再重新渲染。
+
+除为保证上述规则所需的最小局部调整外，不得修改模板其他内容。
+
+## 对话规则与 GitHub 同步
+
+只要用户在当前对话里修改了这个 Agent / Skill 的规则，就要把 GitHub 仓库的对应内容立即一起更新，不能只在聊天中记住。至少检查并同步：
+
+- `SKILL.md`
+- 对应英文/中文文档
+- 受影响的脚本
+- 可以覆盖该规则的测试
 
 ## 重要说明
 
