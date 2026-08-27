@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Fill only the three approved placeholders in the bundled PPTX template.
+"""Fill only the three approved placeholders in the latest user-approved PPTX.
 
-The implementation edits slide XML text in-place inside the PPTX zip package rather
-than rebuilding slides. This intentionally minimizes formatting drift.
+The implementation edits slide XML in-place inside the PPTX zip package rather
+than rebuilding the slide. Rendering/visual QA remains mandatory after filling.
 """
 from __future__ import annotations
 
@@ -34,6 +34,10 @@ def fill(template: Path, output: Path, name: str, student_id: str, school_name: 
     counts = count_tokens(template)
     if counts != EXPECTED:
         raise SystemExit(f"Unexpected placeholder counts: {counts}; expected {EXPECTED}")
+    if not student_id.isdigit():
+        raise SystemExit("Student ID must be numeric")
+    if not school_name.strip():
+        raise SystemExit("school_name must be the verified official English full name")
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as td:
@@ -47,7 +51,6 @@ def fill(template: Path, output: Path, name: str, student_id: str, school_name: 
                     text = text.replace("{{student_id}}", student_id)
                     text = text.replace("{{school_name}}", school_name)
                     payload = text.encode("utf-8")
-                # Preserve the original zip entry metadata where possible.
                 zout.writestr(info, payload)
         shutil.move(tmp, output)
 
@@ -60,29 +63,35 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--school-name", required=True)
-    parser.add_argument("--name")
-    parser.add_argument("--student-id")
+    parser.add_argument("--school-name", required=True, help="Verified official English full university name")
+    parser.add_argument("--name", help="Explicit combined pinyin name; otherwise randomly generated")
+    parser.add_argument("--student-id", help="Explicit numeric Student ID; otherwise randomly generated")
     parser.add_argument("--seed", type=int)
-    parser.add_argument("--id-prefix", default="2023")
-    parser.add_argument("--student-id-length", type=int, choices=(8, 9), default=8)
-    parser.add_argument("--max-name-chars", type=int, default=12)
+    parser.add_argument("--student-id-length", type=int, choices=(7, 8), default=None)
+    parser.add_argument("--id-prefix", default="", help="Optional explicit numeric prefix; empty by default")
+    parser.add_argument("--max-name-chars", type=int, default=11)
     args = parser.parse_args()
 
     identity = generate_identity(
-        args.seed,
-        args.id_prefix,
-        args.student_id_length,
-        args.max_name_chars,
+        seed=args.seed,
+        student_id_length=args.student_id_length,
+        max_name_chars=args.max_name_chars,
+        id_prefix=args.id_prefix,
     )
     name = args.name or identity["name"]
     student_id = args.student_id or identity["student_id"]
+
     fill(args.template, args.output, name, student_id, args.school_name)
+
     print(f"name={name}")
     print(f"student_id={student_id}")
     print(f"school_name={args.school_name}")
     print(f"output={args.output}")
-    print("qa_required=render_and_visually_check_first_line_body_flow_and_bottom_right_school_name")
+    print(
+        "qa_required=render_actual_ppt_to_png_and_check_first_line_body_flow_"
+        "official_school_names_bottom_right_single_line_non_placeholder_integrity_"
+        "and_source_demo_markings_if_present"
+    )
 
 
 if __name__ == "__main__":
