@@ -11,7 +11,7 @@ TEMPLATES = {
     "student": ROOT / "assets" / "certificate_template.pptx",
     "faculty": ROOT / "assets" / "teacher_certificate_template.pptx",
 }
-TOKENS = ("{{name}}", "{{student_id}}", "{{faculty_id}}", "{{school_name}}")
+TOKENS = ("{{name}}", "{{student_id}}", "{{facultyid}}", "{{school_name}}")
 
 
 def inspect(pptx: Path) -> dict[str, int]:
