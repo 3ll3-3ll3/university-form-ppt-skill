@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Prepare one timestamp-named university archive bundle for Google Drive.
+"""Prepare a timestamp-named university archive bundle for Google Drive.
 
-The permanent record destination is Google Drive:
+Permanent record destination:
     大学PPT生成记录/<中文学校名>/
 
-This helper prepares a local MD/PPTX/PNG three-file bundle using a record stem
-that is precise to one minute. Google Drive upload itself is handled by the
-connected Drive workflow so the Markdown footer can contain real returned URLs.
+Important: creating the local bundle is NOT considered archive completion.
+The connected Google Drive workflow must upload MD/PPTX/PNG and then read the
+target folder back to verify that all three files exist.
 """
 from __future__ import annotations
 
@@ -17,17 +17,30 @@ from pathlib import Path
 
 
 def minute_record_stem(now: datetime | None = None) -> str:
-    """Return a filesystem-safe local timestamp precise to one minute."""
     current = now or datetime.now().astimezone()
     return current.strftime("%Y-%m-%d_%H-%M")
 
 
 def choose_record_stem(folder: Path, student_id: str, now: datetime | None = None) -> str:
-    """Use the minute timestamp, adding student ID only on a same-minute collision."""
     stem = minute_record_stem(now)
     if any((folder / f"{stem}.{ext}").exists() for ext in ("md", "pptx", "png")):
         return f"{stem}_{student_id}"
     return stem
+
+
+def require_real_drive_urls(ppt_url: str, png_url: str, prepare_only: bool) -> None:
+    """Reject a final archive record unless real Drive URLs are already known."""
+    if prepare_only:
+        return
+    missing = []
+    if not ppt_url.startswith(("https://drive.google.com/", "https://docs.google.com/")):
+        missing.append("PPT")
+    if not png_url.startswith(("https://drive.google.com/", "https://docs.google.com/")):
+        missing.append("PNG")
+    if missing:
+        raise SystemExit(
+            "Final archive record requires real Google Drive URLs for: " + ", ".join(missing)
+        )
 
 
 def main() -> None:
@@ -51,7 +64,14 @@ def main() -> None:
     p.add_argument("--qa", default="第一行单行；正文自然顺排；右下角官方英文校名单行；演示标识保留")
     p.add_argument("--ppt-drive-url", default="")
     p.add_argument("--png-drive-url", default="")
+    p.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="Allow a local pre-upload bundle without Drive URLs. This is never archive completion.",
+    )
     args = p.parse_args()
+
+    require_real_drive_urls(args.ppt_drive_url, args.png_drive_url, args.prepare_only)
 
     archive_root = Path(args.archive_root).resolve()
     folder = archive_root / args.school_cn
@@ -68,7 +88,6 @@ def main() -> None:
 
     full_name = f"{args.first_name} {args.last_name}".strip()
     timestamp = now.isoformat(timespec="minutes")
-    timezone_name = now.tzname() or str(now.utcoffset())
 
     lines = [
         f"# {args.school_cn}生成记录 — {stem}",
@@ -90,7 +109,6 @@ def main() -> None:
         f"- Latitude：{args.latitude}",
         f"- Longitude：{args.longitude}",
         f"- 生成时间：{timestamp}",
-        f"- 时区：{timezone_name}",
     ]
     if args.source_clue:
         lines.append(f"- 用户原始输入：{args.source_clue}")
@@ -114,6 +132,8 @@ def main() -> None:
 
     md_dst.write_text("\n".join(lines), encoding="utf-8")
     print(md_dst)
+    if args.prepare_only:
+        print("PREPARE_ONLY: Google Drive upload + folder readback are still required.")
 
 
 if __name__ == "__main__":
