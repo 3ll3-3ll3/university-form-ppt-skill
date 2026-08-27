@@ -4,13 +4,14 @@
 Permanent record destination:
     大学PPT生成记录/<中文学校名>/
 
-Important: creating the local bundle is NOT considered archive completion.
-The connected Google Drive workflow must upload MD/PPTX/PNG and then read the
-target folder back to verify that all three files exist.
+Creating a local bundle is NOT archive completion. The connected Google Drive
+workflow must upload final PPTX/PNG, obtain their real URLs, write/upload the MD,
+and read the target folder back to confirm all three expected files exist.
 """
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -43,6 +44,30 @@ def require_real_drive_urls(ppt_url: str, png_url: str, prepare_only: bool) -> N
         )
 
 
+def parse_campuses_json(raw: str) -> list[dict[str, str]]:
+    """Parse up to two selected campuses with explicit coordinates.
+
+    Expected JSON example:
+    [{"name":"望江校区","latitude":"30.63","longitude":"104.08"}]
+    """
+    if not raw:
+        return []
+    value = json.loads(raw)
+    if not isinstance(value, list) or len(value) > 2:
+        raise ValueError("campuses-json must be a JSON list containing at most two campuses")
+    campuses: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("each campus must be a JSON object")
+        name = str(item.get("name", "")).strip()
+        lat = str(item.get("latitude", "")).strip()
+        lon = str(item.get("longitude", "")).strip()
+        if not (name and lat and lon):
+            raise ValueError("each campus requires name, latitude, and longitude")
+        campuses.append({"name": name, "latitude": lat, "longitude": lon})
+    return campuses
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--archive-root", default="大学PPT生成记录")
@@ -50,18 +75,30 @@ def main() -> None:
     p.add_argument("--school-en", required=True)
     p.add_argument("--first-name", required=True)
     p.add_argument("--last-name", required=True)
+    p.add_argument("--zh-name", default="")
     p.add_argument("--student-id", required=True)
     p.add_argument("--address", required=True)
     p.add_argument("--city", required=True)
     p.add_argument("--province", required=True)
     p.add_argument("--postal-code", required=True)
-    p.add_argument("--latitude", required=True)
-    p.add_argument("--longitude", required=True)
     p.add_argument("--ppt", required=True)
     p.add_argument("--png", required=True)
-    p.add_argument("--campus", default="")
+    p.add_argument("--campus", default="", help="Legacy single primary campus name")
+    p.add_argument("--latitude", default="", help="Legacy single primary campus latitude")
+    p.add_argument("--longitude", default="", help="Legacy single primary campus longitude")
+    p.add_argument(
+        "--campuses-json",
+        default="",
+        help="Optional JSON list of up to two selected campus coordinate objects.",
+    )
     p.add_argument("--source-clue", default="")
-    p.add_argument("--qa", default="第一行单行；正文自然顺排；右下角官方英文校名单行；演示标识保留")
+    p.add_argument(
+        "--qa",
+        default=(
+            "第一行单行；Student ID不掉行；正文自然顺排；正文/落款官方英文全名一致；"
+            "右下角校名单行；非占位符无误改；源模板演示标识（如有）保留"
+        ),
+    )
     p.add_argument("--ppt-drive-url", default="")
     p.add_argument("--png-drive-url", default="")
     p.add_argument(
@@ -72,6 +109,11 @@ def main() -> None:
     args = p.parse_args()
 
     require_real_drive_urls(args.ppt_drive_url, args.png_drive_url, args.prepare_only)
+    campuses = parse_campuses_json(args.campuses_json)
+    if not campuses and args.campus and args.latitude and args.longitude:
+        campuses = [
+            {"name": args.campus, "latitude": args.latitude, "longitude": args.longitude}
+        ]
 
     archive_root = Path(args.archive_root).resolve()
     folder = archive_root / args.school_cn
@@ -94,28 +136,36 @@ def main() -> None:
         "",
         f"- 中文校名：{args.school_cn}",
         f"- 官方英文全名：{args.school_en}",
+    ]
+    if args.source_clue:
+        lines.append(f"- 用户原始输入：{args.source_clue}")
+    lines += [
         f"- First name：{args.first_name}",
         f"- Last name：{args.last_name}",
-        f"- 完整随机姓名：{full_name}",
+        f"- 完整随机拼音姓名：{full_name}",
+    ]
+    if args.zh_name:
+        lines.append(f"- 完整随机中文姓名：{args.zh_name}")
+    lines += [
         f"- Student ID：{args.student_id}",
         f"- Address：{args.address}",
         f"- City：{args.city}",
         f"- State/Province：{args.province}",
         f"- Postal/Zip code：{args.postal_code}",
     ]
-    if args.campus:
-        lines.append(f"- 校区：{args.campus}")
+
+    for idx, campus in enumerate(campuses, start=1):
+        lines += [
+            f"- 校区{idx}：{campus['name']}",
+            f"- 校区{idx} Latitude：{campus['latitude']}",
+            f"- 校区{idx} Longitude：{campus['longitude']}",
+        ]
+
     lines += [
-        f"- Latitude：{args.latitude}",
-        f"- Longitude：{args.longitude}",
         f"- 生成时间：{timestamp}",
-    ]
-    if args.source_clue:
-        lines.append(f"- 用户原始输入：{args.source_clue}")
-    lines += [
         f"- PPT 视觉验收：{args.qa}",
         "",
-        "> 注意：必须保留模板中的 `SAMPLE / NOT VALID` 与 `仅供演示，不具效力` 标识。",
+        "> 源模板中若存在 `SAMPLE / NOT VALID` 或 `仅供演示，不具效力`，生成后必须保持可见。",
         "",
     ]
 
@@ -133,7 +183,7 @@ def main() -> None:
     md_dst.write_text("\n".join(lines), encoding="utf-8")
     print(md_dst)
     if args.prepare_only:
-        print("PREPARE_ONLY: Google Drive upload + folder readback are still required.")
+        print("PREPARE_ONLY: Drive upload + final MD upload + folder readback are still required.")
 
 
 if __name__ == "__main__":
