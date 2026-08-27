@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Fill only the three approved placeholders in the latest user-approved PPTX.
-
-The implementation edits slide XML in-place inside the PPTX zip package rather
-than rebuilding the slide. Rendering/visual QA remains mandatory after filling.
-"""
+"""Fill only approved placeholders in the selected student/faculty PPTX template."""
 from __future__ import annotations
 
 import argparse
@@ -12,15 +8,25 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from random_identity import generate_identity
+try:
+    from .random_identity import generate_identity
+except ImportError:  # direct script execution
+    from random_identity import generate_identity
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TEMPLATE = ROOT / "assets" / "certificate_template.pptx"
-EXPECTED = {"{{name}}": 1, "{{student_id}}": 1, "{{school_name}}": 2}
+TEMPLATES = {
+    "student": ROOT / "assets" / "certificate_template.pptx",
+    "faculty": ROOT / "assets" / "teacher_certificate_template.pptx",
+}
+EXPECTED = {
+    "student": {"{{name}}": 1, "{{student_id}}": 1, "{{school_name}}": 2},
+    "faculty": {"{{name}}": 1, "{{faculty_id}}": 1, "{{school_name}}": 2},
+}
 
 
-def count_tokens(pptx: Path) -> dict[str, int]:
-    counts = {k: 0 for k in EXPECTED}
+def count_tokens(pptx: Path, tokens: tuple[str, ...] | None = None) -> dict[str, int]:
+    token_list = tokens or ("{{name}}", "{{student_id}}", "{{faculty_id}}", "{{school_name}}")
+    counts = {k: 0 for k in token_list}
     with zipfile.ZipFile(pptx, "r") as zf:
         for info in zf.infolist():
             if info.filename.startswith("ppt/slides/slide") and info.filename.endswith(".xml"):
@@ -30,14 +36,14 @@ def count_tokens(pptx: Path) -> dict[str, int]:
     return counts
 
 
-def fill(template: Path, output: Path, name: str, student_id: str, school_name: str) -> None:
-    counts = count_tokens(template)
-    if counts != EXPECTED:
-        raise SystemExit(f"Unexpected placeholder counts: {counts}; expected {EXPECTED}")
-    if not student_id.isdigit():
-        raise SystemExit("Student ID must be numeric")
-    if not school_name.strip():
-        raise SystemExit("school_name must be the verified official English full name")
+def fill(template: Path, output: Path, auth_type: str, name: str, numeric_id: str, school_name: str) -> None:
+    expected = EXPECTED[auth_type]
+    counts = count_tokens(template, tuple(expected))
+    if counts != expected:
+        raise SystemExit(f"Unexpected placeholder counts for {auth_type}: {counts}; expected {expected}")
+
+    replacements = {"{{name}}": name, "{{school_name}}": school_name}
+    replacements["{{student_id}}" if auth_type == "student" else "{{faculty_id}}"] = numeric_id
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as td:
@@ -47,51 +53,42 @@ def fill(template: Path, output: Path, name: str, student_id: str, school_name: 
                 payload = zin.read(info.filename)
                 if info.filename.startswith("ppt/slides/slide") and info.filename.endswith(".xml"):
                     text = payload.decode("utf-8")
-                    text = text.replace("{{name}}", name)
-                    text = text.replace("{{student_id}}", student_id)
-                    text = text.replace("{{school_name}}", school_name)
+                    for token, value in replacements.items():
+                        text = text.replace(token, value)
                     payload = text.encode("utf-8")
                 zout.writestr(info, payload)
         shutil.move(tmp, output)
 
-    remaining = count_tokens(output)
+    remaining = count_tokens(output, tuple(expected))
     if any(remaining.values()):
         raise SystemExit(f"Output still contains placeholders: {remaining}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
+    parser.add_argument("--auth-type", choices=("student", "faculty"), default="student")
+    parser.add_argument("--template", type=Path)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--school-name", required=True, help="Verified official English full university name")
-    parser.add_argument("--name", help="Explicit combined pinyin name; otherwise randomly generated")
-    parser.add_argument("--student-id", help="Explicit numeric Student ID; otherwise randomly generated")
+    parser.add_argument("--school-name", required=True)
+    parser.add_argument("--name")
+    parser.add_argument("--student-id", dest="numeric_id")
+    parser.add_argument("--faculty-id", dest="numeric_id")
     parser.add_argument("--seed", type=int)
-    parser.add_argument("--student-id-length", type=int, choices=(7, 8), default=None)
-    parser.add_argument("--id-prefix", default="", help="Optional explicit numeric prefix; empty by default")
+    parser.add_argument("--student-id-length", type=int, choices=(7, 8), default=7)
     parser.add_argument("--max-name-chars", type=int, default=11)
     args = parser.parse_args()
 
-    identity = generate_identity(
-        seed=args.seed,
-        student_id_length=args.student_id_length,
-        max_name_chars=args.max_name_chars,
-        id_prefix=args.id_prefix,
-    )
+    identity = generate_identity(seed=args.seed, student_id_length=args.student_id_length, max_name_chars=args.max_name_chars)
     name = args.name or identity["name"]
-    student_id = args.student_id or identity["student_id"]
-
-    fill(args.template, args.output, name, student_id, args.school_name)
-
+    numeric_id = args.numeric_id or identity["student_id"]
+    template = args.template or TEMPLATES[args.auth_type]
+    fill(template, args.output, args.auth_type, name, numeric_id, args.school_name)
+    print(f"auth_type={args.auth_type}")
     print(f"name={name}")
-    print(f"student_id={student_id}")
+    print(f"numeric_id={numeric_id}")
     print(f"school_name={args.school_name}")
     print(f"output={args.output}")
-    print(
-        "qa_required=render_actual_ppt_to_png_and_check_first_line_body_flow_"
-        "official_school_names_bottom_right_single_line_non_placeholder_integrity_"
-        "and_source_demo_markings_if_present"
-    )
+    print("qa_required=render_and_visually_check_first_line_body_flow_and_bottom_right_school_name")
 
 
 if __name__ == "__main__":
