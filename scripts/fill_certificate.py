@@ -20,12 +20,12 @@ TEMPLATES = {
 }
 EXPECTED = {
     "student": {"{{name}}": 1, "{{student_id}}": 1, "{{school_name}}": 2},
-    "faculty": {"{{name}}": 1, "{{faculty_id}}": 1, "{{school_name}}": 2},
+    "faculty": {"{{name}}": 1, "{{facultyid}}": 1, "{{school_name}}": 2},
 }
 
 
 def count_tokens(pptx: Path, tokens: tuple[str, ...] | None = None) -> dict[str, int]:
-    token_list = tokens or ("{{name}}", "{{student_id}}", "{{faculty_id}}", "{{school_name}}")
+    token_list = tokens or ("{{name}}", "{{student_id}}", "{{facultyid}}", "{{school_name}}")
     counts = {k: 0 for k in token_list}
     with zipfile.ZipFile(pptx, "r") as zf:
         for info in zf.infolist():
@@ -43,7 +43,7 @@ def fill(template: Path, output: Path, auth_type: str, name: str, numeric_id: st
         raise SystemExit(f"Unexpected placeholder counts for {auth_type}: {counts}; expected {expected}")
 
     replacements = {"{{name}}": name, "{{school_name}}": school_name}
-    replacements["{{student_id}}" if auth_type == "student" else "{{faculty_id}}"] = numeric_id
+    replacements["{{student_id}}" if auth_type == "student" else "{{facultyid}}"] = numeric_id
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as td:
@@ -75,10 +75,10 @@ def main() -> None:
     parser.add_argument("--faculty-id", dest="numeric_id")
     parser.add_argument("--seed", type=int)
     parser.add_argument("--student-id-length", type=int, choices=(7, 8), default=7)
-    parser.add_argument("--max-name-chars", type=int, default=11)
+    parser.add_argument("--max-name-chars", type=int, default=12)
     args = parser.parse_args()
 
-    identity = generate_identity(seed=args.seed, student_id_length=args.student_id_length, max_name_chars=args.max_name_chars)
+    identity = generate_identity(args.seed, student_id_length=args.student_id_length, max_name_chars=args.max_name_chars)
     name = args.name or identity["name"]
     numeric_id = args.numeric_id or identity["student_id"]
     template = args.template or TEMPLATES[args.auth_type]
@@ -88,7 +88,7 @@ def main() -> None:
     print(f"numeric_id={numeric_id}")
     print(f"school_name={args.school_name}")
     print(f"output={args.output}")
-    print("qa_required=render_and_visually_check_first_line_body_flow_and_bottom_right_school_name")
+    print("qa_required=render_and_visually_check_first_line_body_natural_flow_no_one_word_per_line_and_bottom_right_school_name")
 
 
 if __name__ == "__main__":
