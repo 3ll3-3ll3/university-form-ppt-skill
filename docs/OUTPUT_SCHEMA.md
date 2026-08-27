@@ -17,6 +17,6 @@ Delivery order after generation:
 11. Postal/Zip code
 12. coordinates last
 
-For faculty mode, the generated numeric ID is written to `{{faculty_id}}`, but the compatibility output label remains `Student ID` unless the user explicitly requests `Faculty ID` wording.
+For faculty mode, the generated numeric ID is written to `{{facultyid}}`, but the compatibility output label remains `Student ID` unless the user explicitly requests `Faculty ID` wording.
 
 Do not output Country/Region, Address line 2, or VAT/GST ID unless explicitly requested.
