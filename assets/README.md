@@ -7,7 +7,7 @@ The workflow uses two current user-approved templates.
 Path: `assets/certificate_template.pptx`
 
 Expected SHA-256:
-`7c2b39b0e29a0771ddc909ce9341c2d8eb5a47f9f925ee30239650452bf04147`
+`3dfa888b44be1d1219bf07d6600f3f76ef20b13488d6b24ca5c09333102ab4e2`
 
 Expected placeholders: one `{{name}}`, one `{{student_id}}`, two `{{school_name}}`.
 
@@ -16,9 +16,9 @@ Expected placeholders: one `{{name}}`, one `{{student_id}}`, two `{{school_name}
 Path: `assets/teacher_certificate_template.pptx`
 
 Expected SHA-256:
-`e2d645a79677ba69a1c648c8e542812c48b30e841af62ce76fec3b5c866b6720`
+`c0f315f563e96b4cd9696f8a6d9bd4f61efd5a9c241c34a1a07e880c3c5b47a9`
 
-Expected placeholders: one `{{name}}`, one `{{faculty_id}}`, two `{{school_name}}`.
+Expected placeholders: one `{{name}}`, one `{{facultyid}}`, two `{{school_name}}`.
 
 If either template is replaced by the user, update the matching SHA, scripts/tests, and workflow docs in the same change. Any demo/non-valid markings present in the source template must remain visible.
 
