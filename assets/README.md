@@ -1,27 +1,25 @@
-# Template asset
+# Template assets
 
-The user-approved template path is:
+The workflow uses two current user-approved templates.
 
-`assets/certificate_template.pptx`
+## Student
 
-Latest user-approved source-template SHA-256:
+Path: `assets/certificate_template.pptx`
 
+Expected SHA-256:
 `7c2b39b0e29a0771ddc909ce9341c2d8eb5a47f9f925ee30239650452bf04147`
 
-Current template contract:
+Expected placeholders: one `{{name}}`, one `{{student_id}}`, two `{{school_name}}`.
 
-- one `{{name}}`
-- one `{{student_id}}`
-- two `{{school_name}}`
+## Faculty
 
-## Binary synchronization status
+Path: `assets/teacher_certificate_template.pptx`
 
-The rules/docs/scripts in this repository target the latest approved template above. If `assets/certificate_template.pptx` still hashes to the legacy value below, the binary replacement itself is pending and must not be falsely reported as synchronized:
+Expected SHA-256:
+`e2d645a79677ba69a1c648c8e542812c48b30e841af62ce76fec3b5c866b6720`
 
-`05ff6bcd78cd0b59cc38b7fd6c13550e74543e51be6b48ea339822e1ee0482eb`
+Expected placeholders: one `{{name}}`, one `{{faculty_id}}`, two `{{school_name}}`.
 
-`tests/test_template.py` marks that legacy-binary state as an expected pending sync (`xfail`) rather than pretending it is the latest file.
+If either template is replaced by the user, update the matching SHA, scripts/tests, and workflow docs in the same change. Any demo/non-valid markings present in the source template must remain visible.
 
-The latest approved source template currently does **not** contain `SAMPLE / NOT VALID` or `仅供演示，不具效力` text in its PPTX XML. The workflow rule is conditional: if a current/future approved source template contains either marking, generated outputs must preserve it visibly and must not delete, hide, crop, cover, or weaken it.
-
-When the user explicitly approves a newer template, replace the binary asset, update the latest SHA-256 here, inspect placeholder counts/marking presence, and run the template tests.
+If the repository binary does not match the expected SHA, template synchronization is incomplete and must not be reported as complete.
