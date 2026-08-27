@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a random Chinese-pinyin demo identity for the certificate workflow."""
+"""Generate a short random Chinese-pinyin demo identity for the certificate workflow."""
 from __future__ import annotations
 
 import argparse
@@ -13,24 +13,32 @@ NAMES_PATH = ROOT / "data" / "names.json"
 
 def generate_identity(
     seed: int | None = None,
-    id_prefix: str = "2023",
-    student_id_length: int = 8,
-    max_name_chars: int = 12,
+    student_id_length: int | None = None,
+    max_name_chars: int = 11,
+    id_prefix: str = "",
 ) -> dict[str, str]:
-    """Generate a layout-friendly random identity.
+    """Generate a layout-friendly random demo identity.
 
-    The certificate's first line is width-constrained, so the default student ID is
-    deliberately 8 digits instead of a fixed 10 digits. The caller may request 9
-    digits only after rendered QA confirms the first line still fits.
+    Current workflow rules:
+    - prefer a short pinyin name;
+    - use a fresh numeric Student ID;
+    - normally use 7-8 digits;
+    - do not add a fixed prefix unless a caller explicitly provides one.
+
+    Rendered QA, not this helper, remains the final authority on first-line fit.
     """
-    if student_id_length < len(id_prefix):
-        raise ValueError("student_id_length must be >= len(id_prefix)")
-    if student_id_length not in (8, 9):
-        raise ValueError("student_id_length must be 8 or 9 for the bundled template")
-
     rng = random.Random(seed)
-    data = json.loads(NAMES_PATH.read_text(encoding="utf-8"))
 
+    if student_id_length is None:
+        student_id_length = rng.choice((7, 8))
+    if student_id_length not in (7, 8):
+        raise ValueError("student_id_length must be 7 or 8 for the current workflow")
+    if id_prefix and not id_prefix.isdigit():
+        raise ValueError("id_prefix must contain digits only")
+    if len(id_prefix) > student_id_length:
+        raise ValueError("id_prefix cannot be longer than student_id_length")
+
+    data = json.loads(NAMES_PATH.read_text(encoding="utf-8"))
     candidates = [
         (surname, given)
         for surname in data["surnames"]
@@ -57,17 +65,28 @@ def generate_identity(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int)
-    parser.add_argument("--id-prefix", default="2023")
-    parser.add_argument("--student-id-length", type=int, choices=(8, 9), default=8)
-    parser.add_argument("--max-name-chars", type=int, default=12)
+    parser.add_argument(
+        "--student-id-length",
+        type=int,
+        choices=(7, 8),
+        default=None,
+        help="Default: randomly choose 7 or 8 digits.",
+    )
+    parser.add_argument(
+        "--id-prefix",
+        default="",
+        help="Optional explicit numeric prefix. Empty by default per current workflow.",
+    )
+    parser.add_argument("--max-name-chars", type=int, default=11)
     args = parser.parse_args()
+
     print(
         json.dumps(
             generate_identity(
-                args.seed,
-                args.id_prefix,
-                args.student_id_length,
-                args.max_name_chars,
+                seed=args.seed,
+                student_id_length=args.student_id_length,
+                max_name_chars=args.max_name_chars,
+                id_prefix=args.id_prefix,
             ),
             ensure_ascii=False,
             indent=2,
