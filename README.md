@@ -12,7 +12,7 @@ It identifies a university and role from a school name/email/domain or related c
 - Faculty: `assets/teacher_certificate_template.pptx`
 
 Student placeholders: `{{name}}`, `{{student_id}}`, `{{school_name}}`.
-Faculty placeholders: `{{name}}`, `{{faculty_id}}`, `{{school_name}}`.
+Faculty placeholders: `{{name}}`, `{{facultyid}}`, `{{school_name}}`.
 
 ## Google Drive archive
 
@@ -35,11 +35,13 @@ Archiving is mandatory and automatic. A run is complete only after PPTX/PNG/MD u
 
 ## Shared output contract
 
-Student and faculty modes keep the same user-facing fields and order: Chinese school name, Official English Name, First name, Last name, Student ID, Address, City, State/Province, Postal/Zip code, then coordinates. In faculty mode the same generated numeric value is inserted into `{{faculty_id}}`; the compatibility output label remains `Student ID` unless the user explicitly asks for `Faculty ID` wording.
+Student and faculty modes keep the same user-facing fields and order: Chinese school name, Official English Name, First name, Last name, Student ID, Address, City, State/Province, Postal/Zip code, then coordinates. In faculty mode the same generated numeric value is inserted into `{{facultyid}}`; the compatibility output label remains `Student ID` unless the user explicitly asks for `Faculty ID` wording.
 
 ## Shared PPT rules
 
 Both modes preserve all non-placeholder formatting/content, keep name + numeric ID on the first line, allow later body text to wrap naturally, keep the bottom-right official English full school name on one line, preserve source-template demo/non-valid markings, and require an actual PPT-to-PNG render check before delivery.
+
+If replacement causes one-word-per-line wrapping, isolated words/fields, or a broken paragraph flow, the output fails QA. The correct behavior is for following words to continue sequentially according to the original paragraph flow. Repair this with the smallest necessary local text-flow adjustment, never with artificial hard line breaks, hard-split words, or an abbreviated school name.
 
 ## Repository role
 
