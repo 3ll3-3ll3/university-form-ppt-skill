@@ -1,167 +1,180 @@
 ---
 name: university-form-ppt-skill
-description: Identify a university from a school name/email/domain, return verified campus form fields and coordinates, generate a random Chinese-pinyin student name and student ID, and fill the bundled PowerPoint certificate template while preserving the original layout.
+description: Identify a university from a school name/email/domain or related clue, verify official school/campus data, generate a short random Chinese-pinyin demo identity, fill only the approved placeholders in the latest user-approved PPT template, render-check the result, and automatically archive the completed record to Google Drive.
 ---
 
-# University Form + PPT Certificate Skill
+# University Information + PPT + Drive Archive Skill
 
-Use this skill when the user sends a university name, school email address/domain, or related school clue and wants the school form fields and/or a PPT certificate generated from the bundled template.
+`SKILL.md` is the operational source of truth for this repository.
 
-## Core workflow
+## 1. Trigger and automatic execution
 
-1. Identify the university from the user's input.
-   - For email input, resolve the domain to the institution.
-   - Prefer the university's own official website for the institution name and campus address.
-   - If the school has multiple campuses and the input does not resolve a campus, choose the current main/primary campus used by the official contact/admissions page and explicitly name that campus.
+When the user provides any obvious university clue, execute the full workflow directly without asking whether to proceed. Supported clues include:
 
-2. Research and verify the campus data.
-   - Official Chinese university name.
-   - Official English university name. Never invent or self-translate it.
-   - Address (single line; no Address line 2).
-   - City.
-   - State/Province.
-   - Postal/Zip code.
-   - Latitude and Longitude for the same campus/address.
-   - Coordinates should preferably be WGS84. If the source is a China map service using GCJ-02/BD-09, convert or clearly normalize before returning coordinates.
-   - Never fabricate an address, postal code, campus, or coordinates.
-
-3. Generate a random student identity for this run.
-   - Generate a plausible two- or three-character Chinese name and transliterate it to pinyin/English letters.
-   - Follow the user's field convention: First name = surname pinyin; Last name = given-name pinyin.
-   - PPT `{{name}}` is the combined form, e.g. `Li Feiyu`.
-   - Generate a fresh random numeric student ID for the same run.
-   - The student ID length is layout-driven, not fixed. Prefer 7–8 digits.
-   - If the first line would wrap, choose a shorter random name first, then a shorter student ID, then render again.
-   - Do not infer the student's real identity from a numeric email username.
-
-4. Return fields in this order, each in its own copyable code block:
-   - Chinese university name
-   - Official English Name
-   - First name
-   - Last name
-   - Student ID
-   - Address
-   - City
-   - State/Province
-   - Postal/Zip code
-   - Latitude/Longitude last
-
-   Do NOT output these removed fields unless explicitly requested:
-   - Country/Region
-   - Address line 2
-   - VAT/GST ID
-
-5. Generate the PPT when the user-approved template is available.
-   - Default template: `assets/certificate_template.pptx`.
-   - Always use the latest user-approved template.
-   - Replace exactly these placeholders and nothing else:
-     - `{{name}}`
-     - `{{student_id}}`
-     - `{{school_name}}`
-   - `{{school_name}}` must use the verified official English university name in both body and bottom-right signature.
-   - Preserve all other text, including date, school/department name, program/specialty, `SAMPLE / NOT VALID`, and `仅供演示，不具效力`.
-
-## Strict PPT formatting rules
-
-- Preserve slide size, theme, fonts, font sizes, colors, positions, shapes, line spacing, paragraph spacing, body text-box size/position, and all non-placeholder content.
-- Do not rebuild the slide from scratch.
-- Prefer raw PPTX XML text replacement so only placeholder text changes.
-- The first body line containing name and student ID must remain one line.
-  - First try a shorter random name.
-  - Then try a shorter student ID.
-  - Do not change body font, size, spacing, text-box geometry, or body position to make it fit.
-- The body text from the second line onward must read as a normal continuous paragraph.
-  - Longer school names may wrap naturally.
-  - Do not insert hard line breaks or split words manually.
-- The bottom-right official English school name must always remain one line.
-  - First preserve the original formatting.
-  - If necessary, only this bottom-right school-name area may receive the smallest local adjustment in width, position, character spacing, or font size.
-  - Never replace the official full name with an abbreviation.
-- Save to a new `.pptx`; never overwrite the user's source template.
-
-## Validation before delivery
-
-Before returning a generated PPT:
-
-1. Confirm placeholder counts in the template: one `{{name}}`, one `{{student_id}}`, and two `{{school_name}}` occurrences.
-2. Confirm all placeholders are gone in the output.
-3. Confirm no other visible text changed.
-4. Render the actual PPT to PNG and visually inspect it. If rendering is unavailable, do not claim visual QA is complete.
-5. Confirm the first line, including name and student ID, remains one line.
-6. Confirm body text wraps naturally with no replacement-created abrupt isolated line.
-7. Confirm the bottom-right official English school name is one line.
-8. Confirm `SAMPLE / NOT VALID` and `仅供演示，不具效力` remain visible.
-9. If any check fails, regenerate and re-render before delivery.
-
-## Google Drive record archive — mandatory completion gate
-
-Every successful generation MUST be automatically archived to Google Drive. This is not optional and must not wait for a follow-up request.
-
-Permanent root folder:
-
-```text
-大学PPT生成记录/<中文学校名>/
-```
-
-For every generation, create and upload all three files:
-
-```text
-<timestamp>.md
-<timestamp>.pptx
-<timestamp>.png
-```
-
-The record stem must be the local generation date/time precise to one minute, using the filesystem-safe format:
-
-```text
-YYYY-MM-DD_HH-mm
-```
-
-Example:
-
-```text
-2026-08-27_09-37.md
-2026-08-27_09-37.pptx
-2026-08-27_09-37.png
-```
-
-If a second record for the same school is created in the same minute, append `_<student_id>` only to avoid collision.
-
-The PNG must be rendered from the actual generated PPT, never AI-generated.
-
-The Markdown record must contain at least:
 - Chinese university name;
+- English university name;
+- school email address;
+- school email domain, including a bare domain such as `@stu.scu.edu.cn`;
+- college/school/faculty name;
+- another clear clue tied to one university.
+
+Do not infer a student's real identity from an email username.
+
+## 2. University research and verification
+
+Identify the institution and verify, in priority order, through:
+
+1. the university's official website;
+2. official admissions pages;
+3. official international/exchange pages;
+4. official contact/information-disclosure pages;
+5. reliable map/geographic sources for coordinates after the campus/address has been verified.
+
+Verify:
+
+- official Chinese university name;
 - official English full name;
-- user's original input;
-- First name;
-- Last name;
-- combined random name;
-- Student ID;
+- main/representative campus or campuses;
 - Address;
 - City;
 - State/Province;
 - Postal/Zip code;
-- campus name(s);
-- coordinates;
-- PPT QA result;
-- the real Google Drive URL for the uploaded PPT;
-- the real Google Drive URL for the uploaded PNG.
+- campus coordinates.
 
-### Mandatory archive completion behavior
+Never self-translate, abbreviate, shorten, or invent the official English university name. The same verified official English full name must be used in every `{{school_name}}` replacement.
 
-- The Google Drive archive is a hard completion gate for every generation.
-- After the user-facing PNG/PPT and fields are prepared, automatically perform the Drive archive in the same run.
-- Do not end the workflow with a normal completion response while Drive archive is still pending.
-- Do not ask the user to say “complete it” or otherwise trigger archiving manually.
-- A generation is fully complete only after MD, PPTX, and PNG have all uploaded successfully and a Drive folder readback confirms the three expected files are present.
-- If any upload or verification fails, explicitly state `该步骤当前没有成功完成。` and do not claim the generation is fully complete.
-- Never fabricate Drive URLs, upload success, or readback results.
+## 3. Campus and coordinate rules
 
-## Delivery order
+- Address and coordinates must refer to real, corresponding campuses.
+- Prefer WGS84 output. Normalize GCJ-02/BD-09 internally when necessary.
+- If the university effectively has one relevant campus, output one Latitude/Longitude pair.
+- If it has multiple campuses, do not dump every campus. Select at most the two most important, common, and representative campuses and clearly label each coordinate pair with its campus name.
+- If one address is used for the form fields, ensure it corresponds to the selected primary campus.
+- Never fabricate an address, postal code, campus, or coordinate.
 
-When replying after generation:
+## 4. Random Chinese name
 
-1. rendered PNG from the actual PPT;
+For every run:
+
+- generate a normal two- or three-character Chinese name;
+- transliterate it to pinyin;
+- prefer shorter combinations to protect the first PPT line;
+- use the project-specific field convention:
+  - `First name` = surname pinyin;
+  - `Last name` = given-name pinyin;
+- PPT `{{name}}` = `SurnamePinyin GivenNamePinyin`, e.g. `Li Feiyu`.
+
+Never derive the name from the user's email/local-part.
+
+## 5. Random Student ID
+
+Generate a fresh numeric Student ID for every run.
+
+- Length is layout-driven, not fixed.
+- Normally prefer 7–8 digits.
+- Do not use a fixed institutional prefix unless the user explicitly requests one.
+- The certificate first line must remain completely on one line.
+- If it wraps: first regenerate a shorter name, then regenerate a shorter Student ID, then render-check again.
+- Do not solve first-line overflow by changing body font, body font size, body line spacing, body text-box geometry, or body position.
+
+## 6. Latest template
+
+Use the latest template that the user explicitly approved. Repository path:
+
+`assets/certificate_template.pptx`
+
+Only replace these placeholders:
+
+- `{{name}}`
+- `{{student_id}}`
+- `{{school_name}}`
+
+Expected template counts for the current workflow:
+
+- one `{{name}}`;
+- one `{{student_id}}`;
+- two `{{school_name}}`.
+
+Prefer direct replacement inside PPTX XML so text boxes are not rebuilt.
+
+## 7. PPT format protection
+
+Except for approved placeholder text, preserve the template exactly as far as practical, including:
+
+- slide/page size;
+- background and images;
+- shapes;
+- theme;
+- body font, font size, color;
+- line spacing and paragraph spacing;
+- body text-box size and position;
+- date;
+- school/department text;
+- specialty/program text;
+- all other non-placeholder text;
+- overall layout.
+
+Do not rebuild the slide from scratch.
+
+## 8. Natural body flow
+
+- The first line containing the name and Student ID must remain a single line.
+- From the second line onward, longer text may wrap naturally.
+- Never insert artificial hard line breaks before/after a replacement.
+- Never hard-split words or deliberately force a replacement field onto its own line.
+- Subsequent English text must flow naturally as a normal paragraph.
+
+## 9. Bottom-right school name
+
+The bottom-right school-name signature must:
+
+1. use the official English full university name;
+2. remain on one line.
+
+First preserve the original formatting. If the full official name cannot remain on one line, only this bottom-right school-name area may receive the smallest necessary local adaptation, such as:
+
+- a very small text-box width adjustment;
+- a very small position adjustment;
+- a very small character-spacing adjustment;
+- if truly necessary, a very small font-size reduction.
+
+Do not change the body or overall slide layout, and never substitute an abbreviation.
+
+## 10. Demo/non-valid markings
+
+If the current template contains either or both of these markings:
+
+- `SAMPLE / NOT VALID`;
+- `仅供演示，不具效力`;
+
+they must remain visible and must not be deleted, hidden, cropped, covered, or weakened to invisibility.
+
+Do not assume a newly approved template necessarily contains them; preservation is conditional on their presence in the source template.
+
+## 11. Required rendering and visual QA
+
+Every generated PPT must be actually rendered to PNG before delivery. AI-generated images are never a substitute for the PPT preview.
+
+Check all applicable items:
+
+1. name + Student ID stay on the first line;
+2. Student ID is not stranded on a new line;
+3. later body text flows naturally;
+4. body school name is the verified official English full name;
+5. bottom-right school name is the same verified official English full name;
+6. bottom-right school name remains one line;
+7. non-placeholder content was not unintentionally changed;
+8. layout/formatting remains normal;
+9. `SAMPLE / NOT VALID` is preserved if it existed in the source template;
+10. `仅供演示，不具效力` is preserved if it existed in the source template.
+
+If any applicable check fails, regenerate/fix and render again before delivery.
+
+## 12. Chat delivery order and field schema
+
+After successful generation, chat delivery order is:
+
+1. actual PNG rendered from the PPT;
 2. PPTX file;
 3. Chinese university name;
 4. Official English Name;
@@ -174,38 +187,123 @@ When replying after generation:
 11. Postal/Zip code;
 12. coordinates last.
 
-The Drive archive must run automatically as part of the same generation workflow and be verified before claiming the run fully complete.
+Each school/form field must be placed in its own copyable code block.
 
-## REDO
+Do not output these unless explicitly requested:
 
-If a generated record is later found wrong, perform a full REDO:
+- Country/Region;
+- Address line 2;
+- VAT/GST ID.
 
-regenerate PPT -> render PNG -> visually re-check -> replace/update the Drive PPT -> replace/update the Drive PNG -> update the Drive MD.
+## 13. Google Drive archive — mandatory and automatic
 
-Do not leave an incorrect Drive version behind while only fixing the chat artifact.
+Every generation must automatically archive the final record to Google Drive in the same workflow. Do not wait for a second user message such as “complete it” or “archive it”.
 
-## Repository role
+Permanent root:
 
-This GitHub repository stores the Agent/Skill workflow, template, scripts, docs, and tests. It does NOT store per-school generation records; those belong in Google Drive.
+`大学PPT生成记录/<中文学校名>/`
 
-## Safety / data integrity
+Each run stores exactly three matching files:
 
-- The bundled template is an explicit demo/non-valid certificate template.
-- Preserve `SAMPLE / NOT VALID` and `仅供演示，不具效力` permanently.
-- Do not remove, hide, crop, cover, or weaken those markings.
+- `<record_stem>.md`
+- `<record_stem>.pptx`
+- `<record_stem>.png`
 
-## Rule synchronization invariant
+The PNG must be rendered from the actual final PPT.
 
-When the user changes this workflow's rules during an interactive conversation, the change is not considered complete until the GitHub repository is updated as applicable.
+### Record naming
 
-Update:
-- `SKILL.md` first;
-- relevant English and Chinese docs;
-- related scripts;
-- related tests.
+Use the local generation date/time precise to one minute:
 
-If repository write access is unavailable or a write fails, explicitly say the synchronization is incomplete. Never pretend a commit happened.
+`YYYY-MM-DD_HH-mm`
 
-## Chinese documentation / 中文文档
+Example:
 
-`SKILL.md` remains the single operational source of truth. Human-readable Simplified Chinese documentation is provided in `README.zh-CN.md` and `docs/*.zh-CN.md`.
+- `2026-08-27_09-37.md`
+- `2026-08-27_09-37.pptx`
+- `2026-08-27_09-37.png`
+
+If the same school receives another record in the same minute, append `_<student_id>` only to prevent collision.
+
+### MD content
+
+The Markdown record must contain at least:
+
+- Chinese university name;
+- official English full name;
+- user's original input;
+- First name;
+- Last name;
+- full random pinyin name;
+- Student ID;
+- Address;
+- City;
+- State/Province;
+- Postal/Zip code;
+- selected campus/campuses;
+- coordinate pair(s);
+- PPT QA result;
+- real Google Drive PPT URL;
+- real Google Drive PNG URL.
+
+Never fabricate or pre-compose Drive URLs.
+
+### Completion gate
+
+Google Drive archiving is a hard completion gate:
+
+- upload final PPTX;
+- upload final rendered PNG;
+- create/update MD using the real returned PPT/PNG Drive URLs;
+- upload MD;
+- read the target school folder back and confirm the expected MD/PPTX/PNG files exist.
+
+Do not consider the run fully complete until all of the above have succeeded.
+
+If any external step fails, explicitly state:
+
+`该步骤当前没有成功完成。`
+
+Never claim an upload, deletion, replacement, render, GitHub write, commit, or readback succeeded unless it actually did.
+
+## 14. REDO
+
+If any generated record is wrong (official English name, abbreviation, first-line wrap, body formatting, signature wrap, template version, Drive artifact, etc.), perform a complete REDO:
+
+PPT regenerate -> PNG render -> visual QA -> replace/update Drive PPTX -> replace/update Drive PNG -> update Drive MD -> Drive readback verification.
+
+Do not fix only the chat artifact while leaving an incorrect Drive version behind.
+
+## 15. GitHub repository role
+
+GitHub stores the reusable workflow, not school generation records. Maintain here:
+
+- `SKILL.md`;
+- English/Chinese README/docs;
+- research/PPT/output/archive rules;
+- name and Student ID generation code;
+- PPT generation code;
+- archive helper code;
+- tests;
+- latest user-approved template.
+
+Per-school MD/PPTX/PNG records belong only in Google Drive.
+
+## 16. Rule synchronization invariant
+
+When the user says “以后增加规则”, “修改规则”, “记住以后”, or otherwise changes this workflow permanently, treat it as a repository change, not a chat-only preference.
+
+Synchronize, as applicable:
+
+1. `SKILL.md`;
+2. relevant English docs;
+3. relevant Chinese docs;
+4. related scripts;
+5. related tests;
+6. latest template when the user explicitly replaces it.
+
+If any required repository update cannot be completed, explicitly report the unsynchronized part. Never pretend a commit occurred.
+
+## 17. Default end-to-end flow
+
+Identify school -> verify official Chinese/English names -> choose representative campus/campuses -> verify address/postal code -> verify coordinates -> generate short random pinyin name -> generate 7–8 digit layout-friendly Student ID -> use latest template -> replace only three approved placeholders -> verify first line/body/signature -> render PNG -> visual QA -> prepare chat artifacts/fields -> automatically archive MD/PPTX/PNG to Drive -> read back Drive folder -> only then claim the run is fully complete.
