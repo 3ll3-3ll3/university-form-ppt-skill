@@ -1,6 +1,6 @@
 ---
 name: university-form-ppt-skill
-description: Identify a university from a school name/email/domain, return verified campus form fields and coordinates, generate a random Chinese-pinyin student name and student ID, fill the bundled PowerPoint certificate template while preserving the original layout, and archive each completed generation to Google Drive.
+description: Identify a university from a school name/email/domain, return verified campus form fields and coordinates, generate a random Chinese-pinyin student name and student ID, and fill the bundled PowerPoint certificate template while preserving the original layout.
 ---
 
 # University Form + PPT Certificate Skill
@@ -16,7 +16,7 @@ Use this skill when the user sends a university name, school email address/domai
 
 2. Research and verify the campus data.
    - Official Chinese university name.
-   - Official English university name; never invent or self-translate it.
+   - Official English university name. Never invent or self-translate it.
    - Address (single line; no Address line 2).
    - City.
    - State/Province.
@@ -27,15 +27,14 @@ Use this skill when the user sends a university name, school email address/domai
 
 3. Generate a random student identity for this run.
    - Generate a plausible two- or three-character Chinese name and transliterate it to pinyin/English letters.
-   - Follow the user's field convention: First name is the surname pinyin and Last name is the given-name pinyin.
-   - Example: `Li` then `Feiyu`.
-   - PPT `{{name}}` should be the combined form: `Li Feiyu`.
+   - Follow the user's field convention: First name = surname pinyin; Last name = given-name pinyin.
+   - PPT `{{name}}` is the combined form, e.g. `Li Feiyu`.
    - Generate a fresh random numeric student ID for the same run.
-   - The student ID length is layout-driven, not fixed. Prefer 7–8 digits by default.
-   - If the first line would wrap, first choose a shorter random name, then a shorter student ID. Do not change the body font, size, line spacing, text box, or body position to make the first line fit.
+   - The student ID length is layout-driven, not fixed. Prefer 7–8 digits.
+   - If the first line would wrap, choose a shorter random name first, then a shorter student ID, then render again.
    - Do not infer the student's real identity from a numeric email username.
 
-4. Return the fields in this order, each in its own copyable code block:
+4. Return fields in this order, each in its own copyable code block:
    - Chinese university name
    - Official English Name
    - First name
@@ -45,16 +44,16 @@ Use this skill when the user sends a university name, school email address/domai
    - City
    - State/Province
    - Postal/Zip code
-   - Latitude / Longitude last
+   - Latitude/Longitude last
 
-   Do NOT output these removed fields unless the user explicitly asks:
+   Do NOT output these removed fields unless explicitly requested:
    - Country/Region
    - Address line 2
    - VAT/GST ID
 
-5. Generate the PPT when a template is available.
+5. Generate the PPT when the user-approved template is available.
    - Default template: `assets/certificate_template.pptx`.
-   - Always use the most recently user-approved template.
+   - Always use the latest user-approved template.
    - Replace exactly these placeholders and nothing else:
      - `{{name}}`
      - `{{student_id}}`
@@ -64,22 +63,20 @@ Use this skill when the user sends a university name, school email address/domai
 
 ## Strict PPT formatting rules
 
-- Preserve the original slide size, theme, fonts, font sizes, colors, positions, shapes, line spacing, paragraph spacing, and all non-placeholder content.
+- Preserve slide size, theme, fonts, font sizes, colors, positions, shapes, line spacing, paragraph spacing, body text-box size/position, and all non-placeholder content.
 - Do not rebuild the slide from scratch.
 - Prefer raw PPTX XML text replacement so only placeholder text changes.
-- The first body line containing `student ID: {{student_id}}` must remain a single line.
-  - The automatically generated name and student ID must be chosen to fit that line.
-  - Prefer a shorter random identity rather than changing typography.
-  - Do not deliver a PPT where the student ID is stranded on a new line.
+- The first body line containing name and student ID must remain one line.
+  - First try a shorter random name.
+  - Then try a shorter student ID.
+  - Do not change body font, size, spacing, text-box geometry, or body position to make it fit.
 - The body text from the second line onward must read as a normal continuous paragraph.
-  - Longer replacement text may wrap naturally.
-  - Do not insert hard line breaks before or after any replacement.
-  - Do not hard-split words or force replacement fields onto isolated lines.
-- The bottom-right school name must always remain on one line and must remain the full official English name.
-  - First try to preserve the original font and position.
-  - If it would wrap, make only the smallest local adjustment necessary to that bottom-right school-name line: tiny width/position adjustment and, only if necessary, a tiny font-size reduction.
-  - Never shorten or abbreviate the school name to solve layout.
-  - Do not change the body or slide's overall layout.
+  - Longer school names may wrap naturally.
+  - Do not insert hard line breaks or split words manually.
+- The bottom-right official English school name must always remain one line.
+  - First preserve the original formatting.
+  - If necessary, only this bottom-right school-name area may receive the smallest local adjustment in width, position, character spacing, or font size.
+  - Never replace the official full name with an abbreviation.
 - Save to a new `.pptx`; never overwrite the user's source template.
 
 ## Validation before delivery
@@ -89,35 +86,32 @@ Before returning a generated PPT:
 1. Confirm placeholder counts in the template: one `{{name}}`, one `{{student_id}}`, and two `{{school_name}}` occurrences.
 2. Confirm all placeholders are gone in the output.
 3. Confirm no other visible text changed.
-4. Render the actual PPT slide to PNG and visually inspect it before delivery. If no renderer is available, do not claim visual QA is complete.
+4. Render the actual PPT to PNG and visually inspect it. If rendering is unavailable, do not claim visual QA is complete.
 5. Confirm the first line, including name and student ID, remains one line.
-6. Confirm the body from the second line onward has natural continuous wrapping and no replacement-created abrupt isolated line.
-7. Confirm the body school name is the verified official English full name.
-8. Confirm the bottom-right school name is the same official English full name and remains one line.
-9. Confirm `SAMPLE / NOT VALID` and `仅供演示，不具效力` remain visible and unobstructed.
-10. If any check fails, regenerate and render again before delivery.
+6. Confirm body text wraps naturally with no replacement-created abrupt isolated line.
+7. Confirm the bottom-right official English school name is one line.
+8. Confirm `SAMPLE / NOT VALID` and `仅供演示，不具效力` remain visible.
+9. If any check fails, regenerate and re-render before delivery.
 
-## Google Drive record archive
+## Google Drive record archive — mandatory completion gate
 
-Specific generation records are NOT stored in this GitHub repository. This repository stores only the reusable Agent/Skill workflow, documentation, scripts, tests, and current template.
+Every successful generation MUST be automatically archived to Google Drive. This is not optional and must not wait for a follow-up request.
 
-Every successful generation must be automatically archived to Google Drive as part of the same workflow without waiting for a separate user request.
-
-Drive root folder:
-
-```text
-大学PPT生成记录
-```
-
-School folder:
+Permanent root folder:
 
 ```text
 大学PPT生成记录/<中文学校名>/
 ```
 
-For each generation, the Markdown, PPTX, and rendered PNG must use the same record stem based on the generation date/time precise to one minute.
+For every generation, create and upload all three files:
 
-Required default stem format:
+```text
+<timestamp>.md
+<timestamp>.pptx
+<timestamp>.png
+```
+
+The record stem must be the local generation date/time precise to one minute, using the filesystem-safe format:
 
 ```text
 YYYY-MM-DD_HH-mm
@@ -126,66 +120,92 @@ YYYY-MM-DD_HH-mm
 Example:
 
 ```text
-2026-08-27_01-11.md
-2026-08-27_01-11.pptx
-2026-08-27_01-11.png
+2026-08-27_09-37.md
+2026-08-27_09-37.pptx
+2026-08-27_09-37.png
 ```
 
-Use the user's current local/session timezone for the timestamp. The stem is minute-precise; do not use the student ID as the normal filename stem anymore. If a record with the same minute stem already exists for the same school, append `_<student_id>` only to avoid overwriting an existing record.
+If a second record for the same school is created in the same minute, append `_<student_id>` only to avoid collision.
 
-The PNG must be rendered directly from that generated PPT, never AI-generated.
+The PNG must be rendered from the actual generated PPT, never AI-generated.
 
 The Markdown record must contain at least:
+- Chinese university name;
+- official English full name;
+- user's original input;
+- First name;
+- Last name;
+- combined random name;
+- Student ID;
+- Address;
+- City;
+- State/Province;
+- Postal/Zip code;
+- campus name(s);
+- coordinates;
+- PPT QA result;
+- the real Google Drive URL for the uploaded PPT;
+- the real Google Drive URL for the uploaded PNG.
 
-- Chinese university name
-- official English full name
-- user's original input/clue
-- First name
-- Last name
-- full random pinyin name
-- Student ID
-- Address
-- City
-- State/Province
-- Postal/Zip code
-- campus name
-- coordinates
-- generation timestamp/timezone
-- PPT visual-QA result
+### Mandatory archive completion behavior
 
-The Markdown footer must store the real Google Drive links returned after upload, including the matching PPT and PNG links. Never invent Drive URLs.
-
-A generation is not considered fully archived until all three files have been uploaded successfully and the destination folder is read back/verified when the connector supports it.
-
-## REDO rule
-
-If the user reports an error in a generated record, perform a full REDO: regenerate PPT -> render PNG -> re-check -> replace the Google Drive PPT -> replace the Google Drive PNG -> update the Markdown record. Do not fix only the chat copy while leaving an incorrect Drive version.
+- The Google Drive archive is a hard completion gate for every generation.
+- After the user-facing PNG/PPT and fields are prepared, automatically perform the Drive archive in the same run.
+- Do not end the workflow with a normal completion response while Drive archive is still pending.
+- Do not ask the user to say “complete it” or otherwise trigger archiving manually.
+- A generation is fully complete only after MD, PPTX, and PNG have all uploaded successfully and a Drive folder readback confirms the three expected files are present.
+- If any upload or verification fails, explicitly state `该步骤当前没有成功完成。` and do not claim the generation is fully complete.
+- Never fabricate Drive URLs, upload success, or readback results.
 
 ## Delivery order
 
-When replying to the user after generation, provide the actual rendered PPT image first, then the PPTX, then the school fields in the required order, and coordinates last. Google Drive archiving is automatic as the final workflow step and must not require the user to ask again.
+When replying after generation:
+
+1. rendered PNG from the actual PPT;
+2. PPTX file;
+3. Chinese university name;
+4. Official English Name;
+5. First name;
+6. Last name;
+7. Student ID;
+8. Address;
+9. City;
+10. State/Province;
+11. Postal/Zip code;
+12. coordinates last.
+
+The Drive archive must run automatically as part of the same generation workflow and be verified before claiming the run fully complete.
+
+## REDO
+
+If a generated record is later found wrong, perform a full REDO:
+
+regenerate PPT -> render PNG -> visually re-check -> replace/update the Drive PPT -> replace/update the Drive PNG -> update the Drive MD.
+
+Do not leave an incorrect Drive version behind while only fixing the chat artifact.
+
+## Repository role
+
+This GitHub repository stores the Agent/Skill workflow, template, scripts, docs, and tests. It does NOT store per-school generation records; those belong in Google Drive.
 
 ## Safety / data integrity
 
-- The bundled template is an explicit demo/non-valid certificate template. Preserve its `SAMPLE / NOT VALID` and `仅供演示，不具效力` markings.
-- Do not remove, hide, crop, weaken, or cover those markings.
-- Any external action such as rendering, Google Drive upload/replacement, or GitHub update may only be claimed as complete after the action actually succeeds.
+- The bundled template is an explicit demo/non-valid certificate template.
+- Preserve `SAMPLE / NOT VALID` and `仅供演示，不具效力` permanently.
+- Do not remove, hide, crop, cover, or weaken those markings.
 
 ## Rule synchronization invariant
 
-When the user changes this workflow's rules during an interactive conversation, the change is not considered complete until the GitHub repository is updated immediately as well.
+When the user changes this workflow's rules during an interactive conversation, the change is not considered complete until the GitHub repository is updated as applicable.
 
-Update, as applicable:
-
+Update:
 - `SKILL.md` first;
-- relevant English and Chinese documentation;
-- implementation scripts;
-- tests.
+- relevant English and Chinese docs;
+- related scripts;
+- related tests.
 
-Do not leave a conversation-only rule that contradicts the repository. Specific school-generation records remain in Google Drive, not GitHub.
+If repository write access is unavailable or a write fails, explicitly say the synchronization is incomplete. Never pretend a commit happened.
 
 ## Chinese documentation / 中文文档
 
-`SKILL.md` remains the single operational source of truth so duplicated translations do not drift. Human-readable Simplified Chinese documentation is provided in `README.zh-CN.md` and `docs/*.zh-CN.md`.
-
-为避免中英文执行规则长期维护后产生偏差，`SKILL.md` 仍作为唯一正式执行规范。面向人工阅读和维护的简体中文说明见 `README.zh-CN.md` 与 `docs/*.zh-CN.md`。
+`SKILL.md` remains the single operational source of truth. Human-readable Simplified Chinese documentation is provided in `README.zh-CN.md` and `docs/*.zh-CN.md`.
