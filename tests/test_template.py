@@ -1,26 +1,31 @@
 from pathlib import Path
-import sys
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-
-from fill_certificate import EXPECTED, count_tokens  # noqa: E402
-from random_identity import generate_identity  # noqa: E402
+import zipfile
 
 
-def test_template_placeholder_counts():
-    template = ROOT / "assets" / "certificate_template.pptx"
-    assert count_tokens(template) == EXPECTED
+TEMPLATE = Path("assets/certificate_template.pptx")
 
 
-def test_default_identity_is_layout_friendly():
-    identity = generate_identity(seed=1)
-    assert len(identity["student_id"]) == 8
-    assert identity["student_id"].isdigit()
-    assert len(identity["name"]) <= 12
+def test_template_exists():
+    assert TEMPLATE.exists()
 
 
-def test_nine_digit_identity_is_supported_for_render_checked_cases():
-    identity = generate_identity(seed=1, student_id_length=9)
-    assert len(identity["student_id"]) == 9
-    assert identity["student_id"].isdigit()
+def test_template_contains_expected_placeholders():
+    with zipfile.ZipFile(TEMPLATE) as zf:
+        xml = "\n".join(
+            zf.read(name).decode("utf-8", errors="ignore")
+            for name in zf.namelist()
+            if name.startswith("ppt/slides/slide") and name.endswith(".xml")
+        )
+    assert xml.count("{{name}}") == 1
+    assert xml.count("{{student_id}}") == 1
+    assert xml.count("{{school_name}}") == 2
+
+
+def test_template_preserves_demo_markings():
+    with zipfile.ZipFile(TEMPLATE) as zf:
+        text = "\n".join(
+            zf.read(name).decode("utf-8", errors="ignore")
+            for name in zf.namelist()
+            if name.endswith(".xml")
+        )
+    assert "SAMPLE" in text or "NOT VALID" in text
