@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from scripts.archive_record import choose_record_stem, minute_record_stem, require_real_drive_urls
+from scripts.archive_record import (
+    choose_record_stem,
+    minute_record_stem,
+    parse_campuses_json,
+    require_real_drive_urls,
+)
 
 
 def test_minute_record_stem_is_precise_to_one_minute():
@@ -32,3 +37,21 @@ def test_real_drive_urls_are_accepted():
 
 def test_prepare_only_is_not_final_completion():
     require_real_drive_urls("", "", prepare_only=True)
+
+
+def test_parse_up_to_two_campuses():
+    campuses = parse_campuses_json(
+        '[{"name":"望江校区","latitude":"30.63","longitude":"104.08"},'
+        '{"name":"江安校区","latitude":"30.56","longitude":"103.99"}]'
+    )
+    assert [c["name"] for c in campuses] == ["望江校区", "江安校区"]
+
+
+def test_reject_more_than_two_campuses():
+    raw = (
+        '[{"name":"A","latitude":"1","longitude":"2"},'
+        '{"name":"B","latitude":"3","longitude":"4"},'
+        '{"name":"C","latitude":"5","longitude":"6"}]'
+    )
+    with pytest.raises(ValueError):
+        parse_campuses_json(raw)
